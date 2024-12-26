@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Activity, Package, Timer, AlertCircle } from "lucide-react"
 
 interface Stats {
@@ -87,9 +87,9 @@ export default function DashboardPage() {
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Recent Production</CardTitle>
-            <CardDescription>
+            <p className="text-sm text-muted-foreground">
               Latest manufacturing activity across all lines
-            </CardDescription>
+            </p>
           </CardHeader>
           <CardContent>
             {/* We'll add a chart or table here later */}
@@ -98,9 +98,9 @@ export default function DashboardPage() {
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>Quality Metrics</CardTitle>
-            <CardDescription>
+            <p className="text-sm text-muted-foreground">
               Current quality performance indicators
-            </CardDescription>
+            </p>
           </CardHeader>
           <CardContent>
             {/* We'll add quality metrics here */}
