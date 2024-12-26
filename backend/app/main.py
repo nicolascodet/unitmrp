@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import models, schemas
 from .database import SessionLocal, engine
@@ -11,6 +12,15 @@ models.Base.metadata.drop_all(bind=engine)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency
 def get_db():
@@ -152,3 +162,20 @@ def update_machine(
     db.commit()
     db.refresh(db_machine)
     return db_machine
+
+@app.get("/stats")
+def get_stats(db: Session = Depends(get_db)):
+    try:
+        total_parts = db.query(models.Part).count()
+        total_production = db.query(models.ProductionRun).count()
+        total_quality_issues = db.query(models.QualityCheck).filter(models.QualityCheck.status == "failed").count()
+        total_machines = db.query(models.Machine).count()
+        
+        return {
+            "total_parts": total_parts,
+            "total_production": total_production,
+            "total_quality_issues": total_quality_issues,
+            "total_machines": total_machines
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
