@@ -1,0 +1,20 @@
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/.env*.local
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Backend
+backend/__pycache__/
+backend/venv/
+backend/*.db
+backend/*.sqlite3
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store 
