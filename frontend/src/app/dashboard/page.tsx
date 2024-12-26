@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { fetchApi } from '@/lib/api'
-import { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent 
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Activity, Package, Timer, AlertCircle } from "lucide-react"
 
 interface Stats {
