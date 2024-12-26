@@ -17,4 +17,8 @@ backend/*.sqlite3
 .idea/
 
 # OS
-.DS_Store 
+.DS_Store
+
+# Python
+venv/
+__pycache__/
