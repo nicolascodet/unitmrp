@@ -1,20 +1,9 @@
 'use client'
 
-import { useEffect, useState, ChangeEvent } from 'react'
-import { fetchApi } from '@/lib/api'
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
 import {
   Table,
   TableBody,
@@ -23,10 +12,42 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-interface BOMItem {
-  part_id: number
-  part_number: string
+interface Customer {
+  id: number
+  name: string
+  contact: string
+  email: string
+  phone: string
+  address: string
+}
+
+interface Material {
+  id: number
+  name: string
+  type: string
+  unit: string
   quantity: number
 }
 
@@ -34,326 +55,177 @@ interface Part {
   id: number
   part_number: string
   description: string
-  customer: string
-  material: string
+  customer_id: number
+  material_id: number
+  setup_time: number
   cycle_time: number
   price: number
-  compatible_machines: string[]
-  setup_time: number
-  bom_items?: BOMItem[]
 }
-
-interface NewPart extends Omit<Part, 'id'> {}
 
 export default function PartsPage() {
   const [parts, setParts] = useState<Part[]>([])
-  const [newPart, setNewPart] = useState<NewPart>({
-    part_number: '',
-    description: '',
-    customer: '',
-    material: '',
-    cycle_time: 0,
-    price: 0,
-    compatible_machines: [],
-    setup_time: 0,
-    bom_items: []
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [isAddingPart, setIsAddingPart] = useState(false)
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [materialSearch, setMaterialSearch] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  const [newCustomer, setNewCustomer] = useState({
+    name: "",
+    contact: "",
+    email: "",
+    phone: "",
+    address: "",
   })
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [machineInput, setMachineInput] = useState('')
-  const [bomPartSearch, setBomPartSearch] = useState('')
-  const [bomQuantity, setBomQuantity] = useState(1)
-  const [filteredBomParts, setFilteredBomParts] = useState<Part[]>([])
+
+  const [newPart, setNewPart] = useState({
+    part_number: "",
+    description: "",
+    customer_id: "",
+    material_id: "",
+    setup_time: "",
+    cycle_time: "",
+    price: "",
+  })
 
   useEffect(() => {
     fetchParts()
+    fetchCustomers()
+    fetchMaterials()
   }, [])
 
-  useEffect(() => {
-    if (bomPartSearch.trim()) {
-      const filtered = parts.filter(
-        part => part.part_number.toLowerCase().includes(bomPartSearch.toLowerCase()) &&
-        !newPart.bom_items?.some(item => item.part_id === part.id)
-      )
-      setFilteredBomParts(filtered)
-    } else {
-      setFilteredBomParts([])
-    }
-  }, [bomPartSearch, parts, newPart.bom_items])
-
-  async function fetchParts() {
+  const fetchParts = async () => {
     try {
-      console.log('Fetching parts...')
-      const data = await fetchApi<Part[]>('/parts')
-      console.log('Fetched parts:', data)
-      setParts(data.sort((a, b) => a.part_number.localeCompare(b.part_number)))
+      const response = await fetch("http://localhost:8000/parts")
+      const data = await response.json()
+      setParts(data)
     } catch (error) {
-      console.error('Failed to fetch parts:', error)
+      console.error("Error fetching parts:", error)
     }
   }
 
-  async function handleCreatePart() {
+  const fetchCustomers = async () => {
     try {
-      console.log('Creating part:', newPart)
-      await fetchApi('/parts', {
-        method: 'POST',
-        body: JSON.stringify(newPart)
-      })
-      console.log('Part created successfully')
-      setIsDialogOpen(false)
-      setNewPart({
-        part_number: '',
-        description: '',
-        customer: '',
-        material: '',
-        cycle_time: 0,
-        price: 0,
-        compatible_machines: [],
-        setup_time: 0,
-        bom_items: []
-      })
-      fetchParts()
+      const response = await fetch("http://localhost:8000/customers")
+      const data = await response.json()
+      setCustomers(data)
     } catch (error) {
-      console.error('Failed to create part:', error)
+      console.error("Error fetching customers:", error)
     }
   }
 
-  const handleInputChange = (field: keyof NewPart) => (e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value
-    setNewPart({ ...newPart, [field]: value })
+  const fetchMaterials = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/materials")
+      const data = await response.json()
+      setMaterials(data)
+    } catch (error) {
+      console.error("Error fetching materials:", error)
+    }
   }
 
-  const handleAddMachine = () => {
-    if (machineInput.trim()) {
-      setNewPart({
-        ...newPart,
-        compatible_machines: [...newPart.compatible_machines, machineInput.trim()]
+  const addPart = async () => {
+    try {
+      setError(null)
+      setIsLoading(true)
+
+      if (!newPart.part_number || !newPart.customer_id || !newPart.material_id) {
+        throw new Error('Required fields are missing')
+      }
+
+      const response = await fetch("http://localhost:8000/parts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          part_number: newPart.part_number,
+          description: newPart.description,
+          customer_id: parseInt(newPart.customer_id),
+          material_id: parseInt(newPart.material_id),
+          setup_time: parseFloat(newPart.setup_time) || 0,
+          cycle_time: parseFloat(newPart.cycle_time) || 0,
+          price: parseFloat(newPart.price) || 0,
+        }),
       })
-      setMachineInput('')
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to create part')
+      }
+
+      await fetchParts()
+      setIsAddingPart(false)
+      setNewPart({
+        part_number: "",
+        description: "",
+        customer_id: "",
+        material_id: "",
+        setup_time: "",
+        cycle_time: "",
+        price: "",
+      })
+    } catch (error) {
+      console.error("Error adding part:", error)
+      setError(error instanceof Error ? error.message : 'Failed to create part')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleRemoveMachine = (machine: string) => {
-    setNewPart({
-      ...newPart,
-      compatible_machines: newPart.compatible_machines.filter(m => m !== machine)
-    })
-  }
+  const addCustomer = async () => {
+    try {
+      setError(null)
+      setIsLoading(true)
 
-  const handleAddBomItem = (part: Part) => {
-    setNewPart({
-      ...newPart,
-      bom_items: [
-        ...(newPart.bom_items || []),
-        {
-          part_id: part.id,
-          part_number: part.part_number,
-          quantity: bomQuantity
-        }
-      ]
-    })
-    setBomPartSearch('')
-    setBomQuantity(1)
-    setFilteredBomParts([])
-  }
+      if (!newCustomer.name || !newCustomer.email) {
+        throw new Error('Name and email are required')
+      }
 
-  const handleRemoveBomItem = (partId: number) => {
-    setNewPart({
-      ...newPart,
-      bom_items: newPart.bom_items?.filter(item => item.part_id !== partId)
-    })
+      const response = await fetch("http://localhost:8000/customers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newCustomer),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to create customer')
+      }
+
+      await fetchCustomers()
+      setIsAddingCustomer(false)
+      setNewCustomer({
+        name: "",
+        contact: "",
+        email: "",
+        phone: "",
+        address: "",
+      })
+    } catch (error) {
+      console.error("Error adding customer:", error)
+      setError(error instanceof Error ? error.message : 'Failed to create customer')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Parts Management</h2>
-        <div className="flex items-center space-x-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>Add New Part</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Create New Part</DialogTitle>
-                <DialogDescription>
-                  Fill in the details for the new part.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="part_number" className="text-right">Part Number</Label>
-                      <Input
-                        id="part_number"
-                        value={newPart.part_number}
-                        onChange={handleInputChange('part_number')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="description" className="text-right">Description</Label>
-                      <Input
-                        id="description"
-                        value={newPart.description}
-                        onChange={handleInputChange('description')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="customer" className="text-right">Customer</Label>
-                      <Input
-                        id="customer"
-                        value={newPart.customer}
-                        onChange={handleInputChange('customer')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="material" className="text-right">Material</Label>
-                      <Input
-                        id="material"
-                        value={newPart.material}
-                        onChange={handleInputChange('material')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="cycle_time" className="text-right">Cycle Time (min)</Label>
-                      <Input
-                        id="cycle_time"
-                        type="number"
-                        value={newPart.cycle_time}
-                        onChange={handleInputChange('cycle_time')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="price" className="text-right">Price ($)</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        value={newPart.price}
-                        onChange={handleInputChange('price')}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="setup_time" className="text-right">Setup Time (min)</Label>
-                      <Input
-                        id="setup_time"
-                        type="number"
-                        value={newPart.setup_time}
-                        onChange={handleInputChange('setup_time')}
-                        className="col-span-3"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Compatible Machines</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={machineInput}
-                          onChange={(e) => setMachineInput(e.target.value)}
-                          placeholder="Enter machine name"
-                        />
-                        <Button type="button" onClick={handleAddMachine}>Add</Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {newPart.compatible_machines.map((machine, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
-                          >
-                            {machine}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMachine(machine)}
-                              className="ml-1 text-blue-600 hover:text-blue-800"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Bill of Materials</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1 space-y-2">
-                          <Input
-                            value={bomPartSearch}
-                            onChange={(e) => setBomPartSearch(e.target.value)}
-                            placeholder="Search for a part number"
-                          />
-                          {filteredBomParts.length > 0 && (
-                            <div className="absolute z-10 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white shadow-lg">
-                              {filteredBomParts.map((part) => (
-                                <button
-                                  key={part.id}
-                                  className="w-full px-4 py-2 text-left hover:bg-gray-100 focus:outline-none"
-                                  onClick={() => handleAddBomItem(part)}
-                                >
-                                  {part.part_number} - {part.description}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <Input
-                          type="number"
-                          value={bomQuantity}
-                          onChange={(e) => setBomQuantity(parseInt(e.target.value))}
-                          className="w-24"
-                          min={1}
-                        />
-                      </div>
-                      {newPart.bom_items && newPart.bom_items.length > 0 && (
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Part Number</TableHead>
-                                <TableHead>Quantity</TableHead>
-                                <TableHead></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {newPart.bom_items.map((item) => (
-                                <TableRow key={item.part_id}>
-                                  <TableCell>{item.part_number}</TableCell>
-                                  <TableCell>{item.quantity}</TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRemoveBomItem(item.part_id)}
-                                    >
-                                      Remove
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreatePart}>Create Part</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Parts</h2>
+        <Button onClick={() => setIsAddingPart(true)}>Create Part</Button>
       </div>
-      <div className="space-y-4">
+
+      <div className="grid gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Parts Inventory</CardTitle>
+            <CardTitle>Parts List</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -364,34 +236,25 @@ export default function PartsPage() {
                     <TableHead>Description</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Material</TableHead>
-                    <TableHead>Cycle Time (min)</TableHead>
-                    <TableHead>Setup Time (min)</TableHead>
-                    <TableHead>Price ($)</TableHead>
-                    <TableHead>Compatible Machines</TableHead>
+                    <TableHead>Setup Time</TableHead>
+                    <TableHead>Cycle Time</TableHead>
+                    <TableHead>Price</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {parts.map((part) => (
                     <TableRow key={part.id}>
-                      <TableCell className="font-medium">{part.part_number}</TableCell>
+                      <TableCell>{part.part_number}</TableCell>
                       <TableCell>{part.description}</TableCell>
-                      <TableCell>{part.customer}</TableCell>
-                      <TableCell>{part.material}</TableCell>
-                      <TableCell>{part.cycle_time}</TableCell>
-                      <TableCell>{part.setup_time}</TableCell>
-                      <TableCell>${part.price.toFixed(2)}</TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {part.compatible_machines.map((machine, index) => (
-                            <span
-                              key={index}
-                              className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
-                            >
-                              {machine}
-                            </span>
-                          ))}
-                        </div>
+                        {customers.find(c => c.id === part.customer_id)?.name || 'Loading...'}
                       </TableCell>
+                      <TableCell>
+                        {materials.find(m => m.id === part.material_id)?.name || 'Loading...'}
+                      </TableCell>
+                      <TableCell>{part.setup_time}</TableCell>
+                      <TableCell>{part.cycle_time}</TableCell>
+                      <TableCell>${part.price}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -400,6 +263,270 @@ export default function PartsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isAddingPart} onOpenChange={setIsAddingPart}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Part</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Part Number</Label>
+                <Input
+                  value={newPart.part_number}
+                  onChange={(e) =>
+                    setNewPart({ ...newPart, part_number: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={newPart.description}
+                  onChange={(e) =>
+                    setNewPart({ ...newPart, description: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Customer</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {newPart.customer_id
+                      ? customers.find(c => c.id.toString() === newPart.customer_id)?.name
+                      : "Select customer..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search customers..." 
+                      value={customerSearch}
+                      onValueChange={setCustomerSearch}
+                    />
+                    <CommandEmpty>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-left font-normal"
+                        onClick={() => setIsAddingCustomer(true)}
+                      >
+                        Create "{customerSearch}"
+                      </Button>
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {customers.map((customer) => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.id.toString()}
+                          onSelect={(currentValue: string) => {
+                            setNewPart({ ...newPart, customer_id: currentValue })
+                            setCustomerSearch("")
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              newPart.customer_id === customer.id.toString()
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {customer.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Material</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {newPart.material_id
+                      ? materials.find(m => m.id.toString() === newPart.material_id)?.name
+                      : "Select material..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search materials..." 
+                      value={materialSearch}
+                      onValueChange={setMaterialSearch}
+                    />
+                    <CommandGroup>
+                      {materials.map((material) => (
+                        <CommandItem
+                          key={material.id}
+                          value={material.id.toString()}
+                          onSelect={(currentValue: string) => {
+                            setNewPart({ ...newPart, material_id: currentValue })
+                            setMaterialSearch("")
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              newPart.material_id === material.id.toString()
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {material.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Setup Time (min)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={newPart.setup_time}
+                  onChange={(e) =>
+                    setNewPart({ ...newPart, setup_time: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Cycle Time (min)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={newPart.cycle_time}
+                  onChange={(e) =>
+                    setNewPart({ ...newPart, cycle_time: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Price ($)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newPart.price}
+                  onChange={(e) =>
+                    setNewPart({ ...newPart, price: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="text-red-500 text-sm">{error}</div>
+            )}
+
+            <Button 
+              onClick={addPart}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? 'Creating...' : 'Create Part'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddingCustomer} onOpenChange={setIsAddingCustomer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={newCustomer.name || customerSearch}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, name: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Contact Person</Label>
+              <Input
+                value={newCustomer.contact}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, contact: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={newCustomer.email}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, email: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input
+                type="tel"
+                value={newCustomer.phone}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, phone: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input
+                value={newCustomer.address}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, address: e.target.value })
+                }
+              />
+            </div>
+
+            {error && (
+              <div className="text-red-500 text-sm">{error}</div>
+            )}
+
+            <Button 
+              onClick={addCustomer}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? 'Creating...' : 'Create Customer'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

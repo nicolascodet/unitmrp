@@ -27,16 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface Machine {
-  id: number;
-  name: string;
-  status: boolean;
-  current_shifts: number;
-  hours_per_shift: number;
-  current_job: string | null;
-  last_updated: string;
-}
-
 interface Part {
   id: number;
   part_number: string;
@@ -46,22 +36,36 @@ interface Part {
   cycle_time: number;
 }
 
+interface Machine {
+  id: number;
+  name: string;
+  status: boolean;
+  current_shifts: number;
+  hours_per_shift: number;
+  current_job: string | null;
+}
+
 interface ProductionRun {
   id: number;
   part_id: number;
-  part: Part;
   quantity: number;
   start_time: string;
   end_time: string | null;
   status: string;
 }
 
+interface EnrichedProductionRun extends ProductionRun {
+  part?: Part;
+}
+
 export default function ProductionPage() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
-  const [productionRuns, setProductionRuns] = useState<ProductionRun[]>([]);
+  const [productionRuns, setProductionRuns] = useState<EnrichedProductionRun[]>([]);
   const [selectedMachine, setSelectedMachine] = useState<string>("");
   const [isAddingRun, setIsAddingRun] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newRun, setNewRun] = useState({
     part_id: "",
     quantity: "",
@@ -98,15 +102,38 @@ export default function ProductionPage() {
   const fetchProductionRuns = async () => {
     try {
       const response = await fetch("http://localhost:8000/production-runs");
-      const data = await response.json();
-      setProductionRuns(data);
+      const runs = await response.json();
+      
+      // Fetch part details for each run
+      const enrichedRuns = await Promise.all(
+        runs.map(async (run: ProductionRun) => {
+          const partResponse = await fetch(`http://localhost:8000/parts/${run.part_id}`);
+          const part = await partResponse.json();
+          return { ...run, part };
+        })
+      );
+      
+      setProductionRuns(enrichedRuns);
     } catch (error) {
       console.error("Error fetching production runs:", error);
     }
   };
 
+  const getCompatibleMachines = (partId: string) => {
+    const part = parts.find(p => p.id.toString() === partId);
+    if (!part) return machines;
+    return machines.filter(m => part.compatible_machines.includes(m.name));
+  };
+
   const addProductionRun = async () => {
     try {
+      setError(null);
+      setIsLoading(true);
+
+      if (!newRun.part_id || !newRun.quantity || !newRun.start_time) {
+        throw new Error('All fields are required');
+      }
+
       const response = await fetch("http://localhost:8000/production-runs", {
         method: "POST",
         headers: {
@@ -115,144 +142,87 @@ export default function ProductionPage() {
         body: JSON.stringify({
           part_id: parseInt(newRun.part_id),
           quantity: parseInt(newRun.quantity),
-          start_time: newRun.start_time,
-          machine_id: parseInt(newRun.machine_id),
-          status: "pending",
+          start_time: new Date(newRun.start_time).toISOString(),
+          status: "pending"
         }),
       });
 
-      if (response.ok) {
-        setIsAddingRun(false);
-        fetchProductionRuns();
-        setNewRun({
-          part_id: "",
-          quantity: "",
-          start_time: "",
-          machine_id: "",
-        });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create production run');
       }
+
+      await fetchProductionRuns();
+      setIsAddingRun(false);
+      setNewRun({
+        part_id: "",
+        quantity: "",
+        start_time: "",
+        machine_id: "",
+      });
     } catch (error) {
       console.error("Error adding production run:", error);
+      setError(error instanceof Error ? error.message : 'Failed to create production run');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const calculateMachineUtilization = (machine: Machine) => {
-    const totalMinutesPerDay = machine.current_shifts * machine.hours_per_shift * 60;
-    const runningJobs = productionRuns.filter(
-      (run) => run.status === "in_progress" && run.part.compatible_machines.includes(machine.name)
-    );
-    
-    const totalJobMinutes = runningJobs.reduce((acc, run) => {
-      return acc + (run.part.setup_time + run.part.cycle_time * run.quantity);
-    }, 0);
-
-    return Math.min((totalJobMinutes / totalMinutesPerDay) * 100, 100);
-  };
-
-  const getCompatibleMachines = (partId: string) => {
-    const part = parts.find((p) => p.id === parseInt(partId));
-    if (!part) return [];
-    return machines.filter((machine) => part.compatible_machines.includes(machine.name));
-  };
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Production Planning</h2>
+        <Button onClick={() => setIsAddingRun(true)}>Schedule Production Run</Button>
+      </div>
+
+      <div className="grid gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Machine Capacity</CardTitle>
+            <CardTitle>Production Runs</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Machine</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Shifts</TableHead>
-                  <TableHead>Hours/Shift</TableHead>
-                  <TableHead>Utilization</TableHead>
-                  <TableHead>Current Job</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {machines.map((machine) => {
-                  const utilization = calculateMachineUtilization(machine);
-                  return (
-                    <TableRow key={machine.id}>
-                      <TableCell>{machine.name}</TableCell>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Part</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Start Time</TableHead>
+                    <TableHead>End Time</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {productionRuns.map((run) => (
+                    <TableRow key={run.id}>
+                      <TableCell>{run.part?.part_number || 'Loading...'}</TableCell>
+                      <TableCell>{run.quantity}</TableCell>
+                      <TableCell>
+                        {new Date(run.start_time).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {run.end_time
+                          ? new Date(run.end_time).toLocaleString()
+                          : "Not Completed"}
+                      </TableCell>
                       <TableCell>
                         <span
-                          className={`px-2 py-1 rounded text-sm ${
-                            machine.status
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            run.status === "completed"
                               ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
+                              : run.status === "in_progress"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
-                          {machine.status ? "Running" : "Idle"}
+                          {run.status}
                         </span>
                       </TableCell>
-                      <TableCell>{machine.current_shifts}</TableCell>
-                      <TableCell>{machine.hours_per_shift}</TableCell>
-                      <TableCell>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div
-                            className="bg-blue-600 h-2.5 rounded-full"
-                            style={{ width: `${utilization}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm text-gray-600">{Math.round(utilization)}%</span>
-                      </TableCell>
-                      <TableCell>{machine.current_job || "None"}</TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              Production Schedule
-              <Button onClick={() => setIsAddingRun(true)}>Add Production Run</Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Part</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Start Time</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {productionRuns.map((run) => (
-                  <TableRow key={run.id}>
-                    <TableCell>{run.part.part_number}</TableCell>
-                    <TableCell>{run.quantity}</TableCell>
-                    <TableCell>
-                      {new Date(run.start_time).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded text-sm ${
-                          run.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : run.status === "in_progress"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {run.status}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -283,6 +253,7 @@ export default function ProductionPage() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>Machine</Label>
               <Select
@@ -303,16 +274,19 @@ export default function ProductionPage() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>Quantity</Label>
               <Input
                 type="number"
+                min="1"
                 value={newRun.quantity}
                 onChange={(e) =>
                   setNewRun({ ...newRun, quantity: e.target.value })
                 }
               />
             </div>
+
             <div className="space-y-2">
               <Label>Start Time</Label>
               <Input
@@ -323,7 +297,18 @@ export default function ProductionPage() {
                 }
               />
             </div>
-            <Button onClick={addProductionRun}>Schedule Run</Button>
+
+            {error && (
+              <div className="text-red-500 text-sm">{error}</div>
+            )}
+
+            <Button 
+              onClick={addProductionRun}
+              disabled={isLoading}
+              className="w-full"
+            >
+              {isLoading ? 'Scheduling...' : 'Schedule Run'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

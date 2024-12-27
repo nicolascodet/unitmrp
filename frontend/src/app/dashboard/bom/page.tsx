@@ -20,6 +20,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Part {
   id: number;
@@ -53,10 +60,10 @@ export default function BOMPage() {
   const [isAddingComponent, setIsAddingComponent] = useState(false);
   const [newComponent, setNewComponent] = useState({
     child_part_id: "",
-    quantity: "",
+    quantity: "0",
     process_step: "",
-    setup_time: "",
-    cycle_time: "",
+    setup_time: "0",
+    cycle_time: "0",
     notes: "",
   });
 
@@ -101,7 +108,10 @@ export default function BOMPage() {
   };
 
   const addComponent = async () => {
-    if (!selectedPart) return;
+    if (!selectedPart || !newComponent.child_part_id || !newComponent.quantity) {
+      console.error("Missing required fields");
+      return;
+    }
 
     try {
       const response = await fetch("http://localhost:8000/bom-items/", {
@@ -116,24 +126,29 @@ export default function BOMPage() {
           process_step: newComponent.process_step,
           setup_time: parseFloat(newComponent.setup_time),
           cycle_time: parseFloat(newComponent.cycle_time),
-          notes: newComponent.notes,
+          notes: newComponent.notes || undefined,
         }),
       });
 
-      if (response.ok) {
-        setIsAddingComponent(false);
-        fetchBOM(selectedPart.id);
-        setNewComponent({
-          child_part_id: "",
-          quantity: "",
-          process_step: "",
-          setup_time: "",
-          cycle_time: "",
-          notes: "",
-        });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Failed to add component");
       }
+
+      const result = await response.json();
+      setIsAddingComponent(false);
+      await fetchBOM(selectedPart.id);
+      setNewComponent({
+        child_part_id: "",
+        quantity: "0",
+        process_step: "",
+        setup_time: "0",
+        cycle_time: "0",
+        notes: "",
+      });
     } catch (error) {
       console.error("Error adding component:", error);
+      // You might want to show an error message to the user here
     }
   };
 
@@ -243,25 +258,32 @@ export default function BOMPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Component</Label>
-              <select
-                className="w-full p-2 border rounded"
+              <Select
                 value={newComponent.child_part_id}
-                onChange={(e) =>
-                  setNewComponent({ ...newComponent, child_part_id: e.target.value })
+                onValueChange={(value) =>
+                  setNewComponent({ ...newComponent, child_part_id: value })
                 }
               >
-                <option value="">Select component...</option>
-                {parts.map((part) => (
-                  <option key={part.id} value={part.id}>
-                    {part.part_number} - {part.description}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a component" />
+                </SelectTrigger>
+                <SelectContent>
+                  {parts
+                    .filter((part) => part.id !== selectedPart?.id)
+                    .map((part) => (
+                      <SelectItem key={part.id} value={part.id.toString()}>
+                        {part.part_number} - {part.description}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Quantity</Label>
               <Input
                 type="number"
+                min="0"
+                step="0.01"
                 value={newComponent.quantity}
                 onChange={(e) =>
                   setNewComponent({ ...newComponent, quantity: e.target.value })
@@ -270,24 +292,20 @@ export default function BOMPage() {
             </div>
             <div className="space-y-2">
               <Label>Process Step</Label>
-              <select
-                className="w-full p-2 border rounded"
+              <Input
+                type="text"
                 value={newComponent.process_step}
                 onChange={(e) =>
                   setNewComponent({ ...newComponent, process_step: e.target.value })
                 }
-              >
-                <option value="">Select process...</option>
-                <option value="molding">Molding</option>
-                <option value="assembly">Assembly</option>
-                <option value="cleaning">Cleaning</option>
-                <option value="qc">Quality Control</option>
-              </select>
+              />
             </div>
             <div className="space-y-2">
               <Label>Setup Time (minutes)</Label>
               <Input
                 type="number"
+                min="0"
+                step="0.1"
                 value={newComponent.setup_time}
                 onChange={(e) =>
                   setNewComponent({ ...newComponent, setup_time: e.target.value })
@@ -298,6 +316,8 @@ export default function BOMPage() {
               <Label>Cycle Time (minutes)</Label>
               <Input
                 type="number"
+                min="0"
+                step="0.1"
                 value={newComponent.cycle_time}
                 onChange={(e) =>
                   setNewComponent({ ...newComponent, cycle_time: e.target.value })
@@ -307,13 +327,20 @@ export default function BOMPage() {
             <div className="space-y-2">
               <Label>Notes</Label>
               <Input
+                type="text"
                 value={newComponent.notes}
                 onChange={(e) =>
                   setNewComponent({ ...newComponent, notes: e.target.value })
                 }
               />
             </div>
-            <Button onClick={addComponent}>Add Component</Button>
+            <Button
+              className="w-full"
+              onClick={addComponent}
+              disabled={!newComponent.child_part_id || !newComponent.quantity}
+            >
+              Add Component
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

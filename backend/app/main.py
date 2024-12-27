@@ -32,6 +32,72 @@ def get_db():
 
 # Initialize test data
 def init_test_data(db: Session):
+    # Create test supplier first
+    test_supplier = models.Supplier(
+        name="ABC Manufacturing",
+        contact_info={"email": "contact@abcmfg.com", "phone": "123-456-7890"},
+        lead_time_days=5,
+        rating=4.5,
+        active=True
+    )
+    db.add(test_supplier)
+    db.commit()
+    db.refresh(test_supplier)
+
+    # Create test machines
+    test_machines = [
+        models.Machine(
+            name="Machine 1",
+            status=False,
+            current_shifts=2,
+            hours_per_shift=8
+        ),
+        models.Machine(
+            name="Machine 2",
+            status=True,
+            current_shifts=3,
+            hours_per_shift=8
+        ),
+        models.Machine(
+            name="Machine 3",
+            status=False,
+            current_shifts=1,
+            hours_per_shift=12
+        )
+    ]
+    
+    for machine in test_machines:
+        db.add(machine)
+    db.commit()
+
+    # Create test materials
+    test_materials = [
+        models.Material(
+            name="Steel",
+            type="raw",
+            supplier_id=test_supplier.id,  # Use the actual supplier ID
+            price=100.00,
+            moq=100,
+            lead_time_days=5,
+            reorder_point=50,
+            specifications={"grade": "304", "finish": "brushed"}
+        ),
+        models.Material(
+            name="Aluminum",
+            type="raw",
+            supplier_id=test_supplier.id,
+            price=75.50,
+            moq=50,
+            lead_time_days=3,
+            reorder_point=25,
+            specifications={"grade": "6061", "finish": "anodized"}
+        )
+    ]
+    
+    for material in test_materials:
+        db.add(material)
+    db.commit()
+
     # Create test parts
     test_parts = [
         models.Part(
@@ -58,7 +124,6 @@ def init_test_data(db: Session):
     
     for part in test_parts:
         db.add(part)
-    
     db.commit()
     
     # Refresh to get the IDs
@@ -83,7 +148,6 @@ def init_test_data(db: Session):
     
     for run in test_runs:
         db.add(run)
-    
     db.commit()
 
 # Initialize test data on startup
@@ -316,7 +380,7 @@ def get_material_requirements(
     }
 
 # Machine Management Endpoints
-@app.post("/machines/", response_model=schemas.Machine)
+@app.post("/machines/", response_model=schemas.MachineResponse)
 def create_machine(machine: schemas.MachineCreate, db: Session = Depends(get_db)):
     db_machine = models.Machine(**machine.dict())
     db.add(db_machine)
@@ -324,18 +388,18 @@ def create_machine(machine: schemas.MachineCreate, db: Session = Depends(get_db)
     db.refresh(db_machine)
     return db_machine
 
-@app.get("/machines/", response_model=List[schemas.Machine])
+@app.get("/machines/", response_model=List[schemas.MachineResponse])
 def read_machines(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(models.Machine).offset(skip).limit(limit).all()
 
-@app.get("/machines/{machine_id}", response_model=schemas.Machine)
+@app.get("/machines/{machine_id}", response_model=schemas.MachineResponse)
 def read_machine(machine_id: int, db: Session = Depends(get_db)):
     db_machine = db.query(models.Machine).filter(models.Machine.id == machine_id).first()
     if db_machine is None:
         raise HTTPException(status_code=404, detail="Machine not found")
     return db_machine
 
-@app.put("/machines/{machine_id}", response_model=schemas.Machine)
+@app.put("/machines/{machine_id}", response_model=schemas.MachineResponse)
 def update_machine(machine_id: int, machine: schemas.MachineUpdate, db: Session = Depends(get_db)):
     db_machine = db.query(models.Machine).filter(models.Machine.id == machine_id).first()
     if db_machine is None:
