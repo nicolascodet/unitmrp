@@ -51,6 +51,7 @@ export default function PartsPage() {
     setup_time: 0
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [machineInput, setMachineInput] = useState('')
 
   useEffect(() => {
     fetchParts()
@@ -59,7 +60,7 @@ export default function PartsPage() {
   async function fetchParts() {
     try {
       const data = await fetchApi<Part[]>('/parts')
-      setParts(data)
+      setParts(data.sort((a, b) => a.part_number.localeCompare(b.part_number)))
     } catch (error) {
       console.error('Failed to fetch parts:', error)
     }
@@ -91,6 +92,23 @@ export default function PartsPage() {
   const handleInputChange = (field: keyof NewPart) => (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value
     setNewPart({ ...newPart, [field]: value })
+  }
+
+  const handleAddMachine = () => {
+    if (machineInput.trim()) {
+      setNewPart({
+        ...newPart,
+        compatible_machines: [...newPart.compatible_machines, machineInput.trim()]
+      })
+      setMachineInput('')
+    }
+  }
+
+  const handleRemoveMachine = (machine: string) => {
+    setNewPart({
+      ...newPart,
+      compatible_machines: newPart.compatible_machines.filter(m => m !== machine)
+    })
   }
 
   return (
@@ -176,6 +194,36 @@ export default function PartsPage() {
                     className="col-span-3"
                   />
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Compatible Machines</Label>
+                  <div className="col-span-3 space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={machineInput}
+                        onChange={(e) => setMachineInput(e.target.value)}
+                        placeholder="Enter machine name"
+                      />
+                      <Button type="button" onClick={handleAddMachine}>Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {newPart.compatible_machines.map((machine, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+                        >
+                          {machine}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMachine(machine)}
+                            className="ml-1 text-blue-600 hover:text-blue-800"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleCreatePart}>Create Part</Button>
@@ -190,32 +238,47 @@ export default function PartsPage() {
             <CardTitle>Parts Inventory</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Part Number</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Material</TableHead>
-                  <TableHead>Cycle Time (min)</TableHead>
-                  <TableHead>Price ($)</TableHead>
-                  <TableHead>Setup Time (min)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parts.map((part) => (
-                  <TableRow key={part.id}>
-                    <TableCell>{part.part_number}</TableCell>
-                    <TableCell>{part.description}</TableCell>
-                    <TableCell>{part.customer}</TableCell>
-                    <TableCell>{part.material}</TableCell>
-                    <TableCell>{part.cycle_time}</TableCell>
-                    <TableCell>{part.price}</TableCell>
-                    <TableCell>{part.setup_time}</TableCell>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Part Number</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Cycle Time (min)</TableHead>
+                    <TableHead>Setup Time (min)</TableHead>
+                    <TableHead>Price ($)</TableHead>
+                    <TableHead>Compatible Machines</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {parts.map((part) => (
+                    <TableRow key={part.id}>
+                      <TableCell className="font-medium">{part.part_number}</TableCell>
+                      <TableCell>{part.description}</TableCell>
+                      <TableCell>{part.customer}</TableCell>
+                      <TableCell>{part.material}</TableCell>
+                      <TableCell>{part.cycle_time}</TableCell>
+                      <TableCell>{part.setup_time}</TableCell>
+                      <TableCell>${part.price.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {part.compatible_machines.map((machine, index) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+                            >
+                              {machine}
+                            </span>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
