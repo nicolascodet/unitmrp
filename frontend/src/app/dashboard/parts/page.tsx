@@ -82,7 +82,9 @@ export default function PartsPage() {
 
   async function fetchParts() {
     try {
+      console.log('Fetching parts...')
       const data = await fetchApi<Part[]>('/parts')
+      console.log('Fetched parts:', data)
       setParts(data.sort((a, b) => a.part_number.localeCompare(b.part_number)))
     } catch (error) {
       console.error('Failed to fetch parts:', error)
@@ -91,10 +93,12 @@ export default function PartsPage() {
 
   async function handleCreatePart() {
     try {
+      console.log('Creating part:', newPart)
       await fetchApi('/parts', {
         method: 'POST',
         body: JSON.stringify(newPart)
       })
+      console.log('Part created successfully')
       setIsDialogOpen(false)
       setNewPart({
         part_number: '',
