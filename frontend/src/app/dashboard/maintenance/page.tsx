@@ -163,8 +163,8 @@ export default function MaintenancePage() {
   const filteredRecords = maintenanceRecords.filter(
     (record) =>
       record.machine.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      (!selectedType || record.type === selectedType) &&
-      (!selectedStatus || record.status === selectedStatus)
+      (selectedType === "all" || !selectedType || record.type === selectedType) &&
+      (selectedStatus === "all" || !selectedStatus || record.status === selectedStatus)
   );
 
   return (
@@ -187,28 +187,28 @@ export default function MaintenancePage() {
                   className="max-w-sm"
                 />
                 <Select
-                  value={selectedType}
-                  onValueChange={(value: string) => setSelectedType(value)}
+                  value={selectedType || undefined}
+                  onValueChange={setSelectedType}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Filter by type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All types</SelectItem>
+                    <SelectItem value="all">All types</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
                     <SelectItem value="unscheduled">Unscheduled</SelectItem>
                     <SelectItem value="breakdown">Breakdown</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select
-                  value={selectedStatus}
-                  onValueChange={(value: string) => setSelectedStatus(value)}
+                  value={selectedStatus || undefined}
+                  onValueChange={setSelectedStatus}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All statuses</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     <SelectItem value="planned">Planned</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
@@ -334,13 +334,13 @@ export default function MaintenancePage() {
             <div className="space-y-2">
               <Label>Machine</Label>
               <Select
-                value={newRecord.machine_id}
-                onValueChange={(value: string) =>
+                value={newRecord.machine_id || undefined}
+                onValueChange={(value) =>
                   setNewRecord({ ...newRecord, machine_id: value })
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select machine..." />
+                  <SelectValue placeholder="Select machine" />
                 </SelectTrigger>
                 <SelectContent>
                   {machines.map((machine) => (
@@ -360,7 +360,7 @@ export default function MaintenancePage() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select type..." />
+                  <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="scheduled">Scheduled</SelectItem>
@@ -373,10 +373,9 @@ export default function MaintenancePage() {
               <Label>Description</Label>
               <Textarea
                 value={newRecord.description}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                onChange={(e) =>
                   setNewRecord({ ...newRecord, description: e.target.value })
                 }
-                placeholder="Enter maintenance description..."
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -402,6 +401,24 @@ export default function MaintenancePage() {
               </div>
             </div>
             <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={newRecord.status}
+                onValueChange={(value: "planned" | "in_progress" | "completed") =>
+                  setNewRecord({ ...newRecord, status: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="planned">Planned</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Technician</Label>
               <Input
                 value={newRecord.technician}
@@ -412,12 +429,11 @@ export default function MaintenancePage() {
             </div>
             <div className="space-y-2">
               <Label>Parts Used</Label>
-              <Textarea
+              <Input
                 value={newRecord.parts_used}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                onChange={(e) =>
                   setNewRecord({ ...newRecord, parts_used: e.target.value })
                 }
-                placeholder="List parts used in maintenance..."
               />
             </div>
             <div className="space-y-2">
@@ -428,28 +444,11 @@ export default function MaintenancePage() {
                 onChange={(e) =>
                   setNewRecord({ ...newRecord, cost: e.target.value })
                 }
-                placeholder="Enter maintenance cost..."
               />
             </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={newRecord.status}
-                onValueChange={(value: "planned" | "in_progress" | "completed") =>
-                  setNewRecord({ ...newRecord, status: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="planned">Planned</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={addMaintenanceRecord}>Add Record</Button>
+            <Button onClick={addMaintenanceRecord} className="w-full">
+              Add Record
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

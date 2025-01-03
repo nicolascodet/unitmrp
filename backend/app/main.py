@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from typing import List, Optional
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
@@ -458,3 +459,76 @@ def update_maintenance_record(record_id: int, record: schemas.MaintenanceRecordU
     db.commit()
     db.refresh(db_record)
     return db_record
+
+@app.get("/stats")
+def get_stats(db: Session = Depends(get_db)):
+    # Get total parts
+    total_parts = db.query(models.Part).count()
+    
+    # Get total active production runs
+    total_production = db.query(models.ProductionRun)\
+        .filter(models.ProductionRun.status.in_(["pending", "in_progress"]))\
+        .count()
+    
+    # Get total quality issues
+    total_quality_issues = db.query(models.QualityCheck)\
+        .filter(models.QualityCheck.status == "failed")\
+        .count()
+    
+    # Get total machines
+    total_machines = db.query(models.Machine).count()
+    
+    # Get low stock items
+    low_stock_items = db.query(
+        models.Material.name.label("material_name"),
+        func.sum(models.InventoryItem.quantity).label("quantity"),
+        models.Material.reorder_point
+    ).join(models.InventoryItem)\
+    .filter(models.InventoryItem.status == "available")\
+    .group_by(models.Material.id)\
+    .having(func.sum(models.InventoryItem.quantity) <= models.Material.reorder_point)\
+    .all()
+    
+    # Get recent production runs
+    recent_production = db.query(models.ProductionRun)\
+        .join(models.Part)\
+        .order_by(models.ProductionRun.start_time.desc())\
+        .limit(5)\
+        .all()
+    
+    # Get machine status
+    machine_status = db.query(models.Machine).all()
+    
+    return {
+        "total_parts": total_parts,
+        "total_production": total_production,
+        "total_quality_issues": total_quality_issues,
+        "total_machines": total_machines,
+        "low_stock_items": [
+            {
+                "material_name": item.material_name,
+                "quantity": float(item.quantity),
+                "reorder_point": float(item.reorder_point)
+            }
+            for item in low_stock_items
+        ],
+        "recent_production": [
+            {
+                "id": run.id,
+                "product_name": run.part.part_number,
+                "quantity": run.quantity,
+                "status": run.status,
+                "start_date": run.start_time.isoformat()
+            }
+            for run in recent_production
+        ],
+        "machine_status": [
+            {
+                "id": machine.id,
+                "name": machine.name,
+                "status": machine.status,
+                "current_job": machine.current_job
+            }
+            for machine in machine_status
+        ]
+    }

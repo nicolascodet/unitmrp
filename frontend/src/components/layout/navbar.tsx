@@ -1,12 +1,18 @@
-import { Button } from "@/components/ui/button"
+import Link from 'next/link'
+import { Factory } from 'lucide-react'
 
 export default function Navbar() {
   return (
-    <nav className="border-b bg-background">
-      <div className="flex h-16 items-center px-4">
-        <h2 className="text-lg font-semibold">MRP System</h2>
-        <div className="ml-auto flex items-center space-x-4">
-          <Button variant="outline">Menu</Button>
+    <nav className="border-b bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex h-16 items-center justify-between px-4">
+          <Link href="/dashboard" className="flex items-center space-x-2">
+            <Factory className="h-6 w-6" />
+            <span className="font-bold text-xl">MRP System</span>
+          </Link>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm">Manufacturing Resource Planning</span>
+          </div>
         </div>
       </div>
     </nav>

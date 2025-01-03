@@ -4,11 +4,11 @@ import Sidebar from "@/components/layout/sidebar"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-100">
       <Navbar />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1">
           {children}
         </main>
       </div>

@@ -20,19 +20,12 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Customer {
   id: number
@@ -67,19 +60,8 @@ export default function PartsPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [isAddingPart, setIsAddingPart] = useState(false)
-  const [isAddingCustomer, setIsAddingCustomer] = useState(false)
-  const [customerSearch, setCustomerSearch] = useState("")
-  const [materialSearch, setMaterialSearch] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  const [newCustomer, setNewCustomer] = useState({
-    name: "",
-    contact: "",
-    email: "",
-    phone: "",
-    address: "",
-  })
 
   const [newPart, setNewPart] = useState({
     part_number: "",
@@ -92,38 +74,57 @@ export default function PartsPage() {
   })
 
   useEffect(() => {
-    fetchParts()
-    fetchCustomers()
-    fetchMaterials()
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        await Promise.all([
+          fetchParts(),
+          fetchCustomers(),
+          fetchMaterials()
+        ])
+      } catch (error) {
+        console.error("Error loading data:", error)
+        setError("Failed to load data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
   }, [])
 
   const fetchParts = async () => {
     try {
       const response = await fetch("http://localhost:8000/parts")
+      if (!response.ok) throw new Error("Failed to fetch parts")
       const data = await response.json()
       setParts(data)
     } catch (error) {
       console.error("Error fetching parts:", error)
+      throw error
     }
   }
 
   const fetchCustomers = async () => {
     try {
       const response = await fetch("http://localhost:8000/customers")
+      if (!response.ok) throw new Error("Failed to fetch customers")
       const data = await response.json()
-      setCustomers(data)
+      setCustomers(data || [])
     } catch (error) {
       console.error("Error fetching customers:", error)
+      throw error
     }
   }
 
   const fetchMaterials = async () => {
     try {
       const response = await fetch("http://localhost:8000/materials")
+      if (!response.ok) throw new Error("Failed to fetch materials")
       const data = await response.json()
-      setMaterials(data)
+      setMaterials(data || [])
     } catch (error) {
       console.error("Error fetching materials:", error)
+      throw error
     }
   }
 
@@ -176,43 +177,34 @@ export default function PartsPage() {
     }
   }
 
-  const addCustomer = async () => {
-    try {
-      setError(null)
-      setIsLoading(true)
+  // Filter out any items with undefined or empty IDs
+  const validCustomers = customers.filter(customer => customer.id != null && customer.id !== 0)
+  const validMaterials = materials.filter(material => material.id != null && material.id !== 0)
 
-      if (!newCustomer.name || !newCustomer.email) {
-        throw new Error('Name and email are required')
-      }
+  if (isLoading) {
+    return (
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Parts</h2>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
-      const response = await fetch("http://localhost:8000/customers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newCustomer),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to create customer')
-      }
-
-      await fetchCustomers()
-      setIsAddingCustomer(false)
-      setNewCustomer({
-        name: "",
-        contact: "",
-        email: "",
-        phone: "",
-        address: "",
-      })
-    } catch (error) {
-      console.error("Error adding customer:", error)
-      setError(error instanceof Error ? error.message : 'Failed to create customer')
-    } finally {
-      setIsLoading(false)
-    }
+  if (error) {
+    return (
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold tracking-tight">Parts</h2>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-red-500">{error}</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -247,14 +239,14 @@ export default function PartsPage() {
                       <TableCell>{part.part_number}</TableCell>
                       <TableCell>{part.description}</TableCell>
                       <TableCell>
-                        {customers.find(c => c.id === part.customer_id)?.name || 'Loading...'}
+                        {customers.find(c => c.id === part.customer_id)?.name || 'N/A'}
                       </TableCell>
                       <TableCell>
-                        {materials.find(m => m.id === part.material_id)?.name || 'Loading...'}
+                        {materials.find(m => m.id === part.material_id)?.name || 'N/A'}
                       </TableCell>
                       <TableCell>{part.setup_time}</TableCell>
                       <TableCell>{part.cycle_time}</TableCell>
-                      <TableCell>${part.price}</TableCell>
+                      <TableCell>${part.price.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -267,171 +259,98 @@ export default function PartsPage() {
       <Dialog open={isAddingPart} onOpenChange={setIsAddingPart}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Part</DialogTitle>
+            <DialogTitle>Add New Part</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Part Number</Label>
-                <Input
-                  value={newPart.part_number}
-                  onChange={(e) =>
-                    setNewPart({ ...newPart, part_number: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input
-                  value={newPart.description}
-                  onChange={(e) =>
-                    setNewPart({ ...newPart, description: e.target.value })
-                  }
-                />
-              </div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Part Number</Label>
+              <Input
+                value={newPart.part_number}
+                onChange={(e) =>
+                  setNewPart({ ...newPart, part_number: e.target.value })
+                }
+              />
             </div>
-
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input
+                value={newPart.description}
+                onChange={(e) =>
+                  setNewPart({ ...newPart, description: e.target.value })
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label>Customer</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  >
-                    {newPart.customer_id
-                      ? customers.find(c => c.id.toString() === newPart.customer_id)?.name
-                      : "Select customer..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Search customers..." 
-                      value={customerSearch}
-                      onValueChange={setCustomerSearch}
-                    />
-                    <CommandEmpty>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start text-left font-normal"
-                        onClick={() => setIsAddingCustomer(true)}
-                      >
-                        Create "{customerSearch}"
-                      </Button>
-                    </CommandEmpty>
-                    <CommandGroup>
-                      {customers.map((customer) => (
-                        <CommandItem
-                          key={customer.id}
-                          value={customer.id.toString()}
-                          onSelect={(currentValue: string) => {
-                            setNewPart({ ...newPart, customer_id: currentValue })
-                            setCustomerSearch("")
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              newPart.customer_id === customer.id.toString()
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          {customer.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Select
+                value={newPart.customer_id || undefined}
+                onValueChange={(value) =>
+                  setNewPart({ ...newPart, customer_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {validCustomers.map((customer) => (
+                    <SelectItem 
+                      key={customer.id} 
+                      value={customer.id.toString()}
+                    >
+                      {customer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Material</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between"
-                  >
-                    {newPart.material_id
-                      ? materials.find(m => m.id.toString() === newPart.material_id)?.name
-                      : "Select material..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Search materials..." 
-                      value={materialSearch}
-                      onValueChange={setMaterialSearch}
-                    />
-                    <CommandGroup>
-                      {materials.map((material) => (
-                        <CommandItem
-                          key={material.id}
-                          value={material.id.toString()}
-                          onSelect={(currentValue: string) => {
-                            setNewPart({ ...newPart, material_id: currentValue })
-                            setMaterialSearch("")
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              newPart.material_id === material.id.toString()
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
-                          {material.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Select
+                value={newPart.material_id || undefined}
+                onValueChange={(value) =>
+                  setNewPart({ ...newPart, material_id: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select material..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {validMaterials.map((material) => (
+                    <SelectItem 
+                      key={material.id} 
+                      value={material.id.toString()}
+                    >
+                      {material.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Setup Time (min)</Label>
                 <Input
                   type="number"
-                  min="0"
-                  step="0.1"
                   value={newPart.setup_time}
                   onChange={(e) =>
                     setNewPart({ ...newPart, setup_time: e.target.value })
                   }
                 />
               </div>
-
               <div className="space-y-2">
-                <Label>Cycle Time (min)</Label>
+                <Label>Cycle Time (sec)</Label>
                 <Input
                   type="number"
-                  min="0"
-                  step="0.1"
                   value={newPart.cycle_time}
                   onChange={(e) =>
                     setNewPart({ ...newPart, cycle_time: e.target.value })
                   }
                 />
               </div>
-
               <div className="space-y-2">
                 <Label>Price ($)</Label>
                 <Input
                   type="number"
-                  min="0"
-                  step="0.01"
                   value={newPart.price}
                   onChange={(e) =>
                     setNewPart({ ...newPart, price: e.target.value })
@@ -439,91 +358,14 @@ export default function PartsPage() {
                 />
               </div>
             </div>
-
-            {error && (
-              <div className="text-red-500 text-sm">{error}</div>
-            )}
-
-            <Button 
+            <Button
+              className="w-full"
               onClick={addPart}
               disabled={isLoading}
-              className="w-full"
             >
-              {isLoading ? 'Creating...' : 'Create Part'}
+              {isLoading ? "Adding..." : "Add Part"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isAddingCustomer} onOpenChange={setIsAddingCustomer}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Customer</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
-                value={newCustomer.name || customerSearch}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, name: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contact Person</Label>
-              <Input
-                value={newCustomer.contact}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, contact: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={newCustomer.email}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, email: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input
-                type="tel"
-                value={newCustomer.phone}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, phone: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Address</Label>
-              <Input
-                value={newCustomer.address}
-                onChange={(e) =>
-                  setNewCustomer({ ...newCustomer, address: e.target.value })
-                }
-              />
-            </div>
-
-            {error && (
-              <div className="text-red-500 text-sm">{error}</div>
-            )}
-
-            <Button 
-              onClick={addCustomer}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? 'Creating...' : 'Create Customer'}
-            </Button>
+            {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
         </DialogContent>
       </Dialog>
