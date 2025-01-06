@@ -35,12 +35,23 @@ class InventoryItemBase(BaseModel):
     expiry_date: Optional[datetime] = None
 
 class BOMItemBase(BaseModel):
-    parent_part_id: int
-    child_part_id: int
+    material_name: str
     quantity: float = Field(ge=0)
-    process_step: str
-    setup_time: float = Field(ge=0)
-    cycle_time: float = Field(ge=0)
+    unit: str
+    notes: Optional[str] = None
+
+class BOMStepBase(BaseModel):
+    description: str
+    time_minutes: float = Field(ge=0)
+    cost_per_hour: float = Field(ge=0)
+    notes: Optional[str] = None
+
+class BOMBase(BaseModel):
+    steps: List[BOMStepBase]
+    materials: List[BOMItemBase]
+    cycle_time_seconds: Optional[float] = Field(None, ge=0)
+    cavities: Optional[int] = Field(None, ge=1)
+    scrap_rate: Optional[float] = Field(None, ge=0, le=100)
     notes: Optional[str] = None
 
 # Create Schemas
@@ -53,7 +64,7 @@ class MaterialCreate(MaterialBase):
 class InventoryItemCreate(InventoryItemBase):
     pass
 
-class BOMItemCreate(BOMItemBase):
+class BOMCreate(BOMBase):
     pass
 
 # Read Schemas
@@ -85,6 +96,20 @@ class BOMItem(BOMItemBase):
     class Config:
         orm_mode = True
 
+class BOMStep(BOMStepBase):
+    id: int
+    
+    class Config:
+        orm_mode = True
+
+class BOM(BOMBase):
+    id: int
+    materials: List[BOMItem]
+    steps: List[BOMStep]
+    
+    class Config:
+        orm_mode = True
+
 # Update existing Part schema with BOM relationships
 class Part(BaseModel):
     id: int
@@ -96,8 +121,7 @@ class Part(BaseModel):
     price: float
     compatible_machines: List[str]
     setup_time: float
-    child_components: List[BOMItem] = []
-    parent_assemblies: List[BOMItem] = []
+    bom: Optional[BOM] = None
     
     class Config:
         orm_mode = True
@@ -148,9 +172,13 @@ class PartCreate(PartBase):
 
 class PartResponse(PartBase):
     id: int
+    bom: Optional[BOM] = None
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class ProductionRunBase(BaseModel):
     quantity: int
@@ -158,15 +186,25 @@ class ProductionRunBase(BaseModel):
     end_time: Optional[datetime] = None
     status: str
 
-class ProductionRunCreate(ProductionRunBase):
-    part_id: int
+class ProductionRunCreate(BaseModel):
+    order_id: int
+    order_item_id: int
+    quantity: int
+    status: str
 
-class ProductionRunResponse(ProductionRunBase):
+class ProductionRunResponse(BaseModel):
     id: int
-    part_id: int
+    order_id: int
+    order_item_id: int
+    quantity: int
+    status: str
+    start_date: Optional[datetime]
+    end_date: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class QualityCheckBase(BaseModel):
     quantity_checked: int
@@ -241,3 +279,93 @@ class MachineUpdate(BaseModel):
     current_shifts: Optional[int] = None
     hours_per_shift: Optional[int] = None
     current_job: Optional[str] = None
+
+class OrderItemBase(BaseModel):
+    part_id: int
+    quantity: int = Field(ge=1)
+    status: str = "pending"
+
+class OrderItemCreate(OrderItemBase):
+    pass
+
+class OrderItem(OrderItemBase):
+    id: int
+    order_id: int
+    part: Part
+
+    class Config:
+        from_attributes = True
+
+class OrderBase(BaseModel):
+    customer: str
+    due_date: datetime
+    status: str = "open"
+    notes: Optional[str] = None
+
+class OrderCreate(OrderBase):
+    items: List[OrderItemCreate]
+
+class Order(OrderBase):
+    id: int
+    order_number: str
+    created_at: datetime
+    updated_at: datetime
+    items: List[OrderItem]
+
+    class Config:
+        from_attributes = True
+
+class PurchaseOrderItemBase(BaseModel):
+    material_id: int
+    quantity: float = Field(ge=0)
+    unit_price: float = Field(ge=0)
+    status: str = "pending"
+    received_quantity: float = Field(default=0, ge=0)
+
+class PurchaseOrderItemCreate(PurchaseOrderItemBase):
+    pass
+
+class PurchaseOrderItem(PurchaseOrderItemBase):
+    id: int
+    po_id: int
+    material: Material
+
+    class Config:
+        from_attributes = True
+
+class PurchaseOrderBase(BaseModel):
+    supplier_id: int
+    expected_delivery: datetime
+    status: str = "draft"
+    notes: Optional[str] = None
+
+class PurchaseOrderCreate(PurchaseOrderBase):
+    items: List[PurchaseOrderItemCreate]
+
+class PurchaseOrder(PurchaseOrderBase):
+    id: int
+    po_number: str
+    order_date: datetime
+    supplier: Supplier
+    items: List[PurchaseOrderItem]
+
+    class Config:
+        from_attributes = True
+
+class CustomerBase(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+
+class CustomerCreate(CustomerBase):
+    pass
+
+class CustomerResponse(CustomerBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

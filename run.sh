@@ -3,6 +3,7 @@
 # Start the backend server
 cd backend
 source venv/bin/activate
+export PYTHONPATH=$PWD
 uvicorn app.main:app --reload --port 8000 &
 BACKEND_PID=$!
 

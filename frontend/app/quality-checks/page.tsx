@@ -1,10 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { API_ENDPOINTS, fetchApi } from '@/lib/api'
+
+interface QualityCheck {
+  id: number
+  part_name: string
+  result: string
+  notes: string
+  date: string
+}
 
 export default function QualityChecksPage() {
   const [showForm, setShowForm] = useState(false)
-  const [checks, setChecks] = useState([])
+  const [checks, setChecks] = useState<QualityCheck[]>([])
   const [formData, setFormData] = useState({
     part_name: '',
     result: 'Pass',
@@ -17,32 +26,24 @@ export default function QualityChecksPage() {
 
   const fetchChecks = async () => {
     try {
-      const response = await fetch('http://localhost:8000/quality-checks')
-      if (response.ok) {
-        const data = await response.json()
-        setChecks(data)
-      }
+      const data = await fetchApi<QualityCheck[]>(API_ENDPOINTS.QUALITY_CHECKS)
+      setChecks(data)
     } catch (error) {
-      console.error('Error fetching checks:', error)
+      console.error('Error fetching quality checks:', error)
     }
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
-      const response = await fetch('http://localhost:8000/quality-checks', {
+      await fetchApi(API_ENDPOINTS.QUALITY_CHECKS, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(formData),
       })
-      if (response.ok) {
-        alert('Quality check created successfully!')
-        setShowForm(false)
-        setFormData({ part_name: '', result: 'Pass', notes: '' })
-        fetchChecks() // Refresh the list
-      }
+      alert('Quality check created successfully!')
+      setShowForm(false)
+      setFormData({ part_name: '', result: 'Pass', notes: '' })
+      fetchChecks() // Refresh the list
     } catch (error) {
       alert('Failed to create quality check')
     }

@@ -1,12 +1,30 @@
-import { getParts, getProductionRuns, getQualityChecks } from '@/lib/api';
+import { API_ENDPOINTS, fetchApi } from '@/lib/api'
+
+interface Part {
+  id: number
+  name: string
+  quantity: number
+}
+
+interface ProductionRun {
+  id: number
+  part_name: string
+  status: string
+}
+
+interface QualityCheck {
+  id: number
+  part_name: string
+  result: string
+}
 
 export default async function Home() {
   try {
     // Fetch data from API
     const [parts, runs, checks] = await Promise.all([
-      getParts().catch(() => []),
-      getProductionRuns().catch(() => []),
-      getQualityChecks().catch(() => [])
+      fetchApi<Part[]>(API_ENDPOINTS.PARTS).catch(() => []),
+      fetchApi<ProductionRun[]>(API_ENDPOINTS.PRODUCTION_RUNS).catch(() => []),
+      fetchApi<QualityCheck[]>(API_ENDPOINTS.QUALITY_CHECKS).catch(() => [])
     ]);
 
     return (

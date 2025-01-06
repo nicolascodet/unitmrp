@@ -1,61 +1,59 @@
-const API_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:8000/api';
 
-async function handleResponse(response: Response) {
+export const API_ENDPOINTS = {
+  ORDERS: `${API_BASE_URL}/orders`,
+  PARTS: `${API_BASE_URL}/parts`,
+  PARTS_SEARCH: `${API_BASE_URL}/parts/search`,
+  INVENTORY: `${API_BASE_URL}/inventory`,
+  PURCHASE_ORDERS: `${API_BASE_URL}/purchase-orders`,
+  MATERIALS: `${API_BASE_URL}/materials`,
+  QUALITY_CHECKS: `${API_BASE_URL}/quality-checks`,
+  PRODUCTION_RUNS: `${API_BASE_URL}/production-runs`,
+  SUPPLIERS: `${API_BASE_URL}/suppliers`,
+  CUSTOMERS: `${API_BASE_URL}/customers`,
+  CUSTOMERS_SEARCH: `${API_BASE_URL}/customers/search`,
+  BOM: `${API_BASE_URL}/bom`,
+};
+
+export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(endpoint, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
-    throw new Error(errorData?.detail || `API Error: ${response.statusText}`);
+    throw new Error(errorData?.detail || `API call failed: ${response.statusText}`);
   }
+
   return response.json();
 }
 
 export async function getParts() {
-  console.log('Fetching parts from:', `${API_URL}/parts`);
-  const response = await fetch(`${API_URL}/parts`);
-  return handleResponse(response);
+  return fetchApi(API_ENDPOINTS.PARTS);
 }
 
-export async function createPart(data: { name: string; quantity: number; description?: string }) {
-  console.log('Creating part:', data);
-  const response = await fetch(`${API_URL}/parts`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  return handleResponse(response);
+export interface Part {
+  id: number;
+  part_number: string;
+  description: string;
 }
 
-export async function updatePart(id: number, data: { quantity?: number; name?: string; description?: string }) {
-  console.log('Updating part:', { id, data });
-  const response = await fetch(`${API_URL}/parts/${id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-  return handleResponse(response);
+export async function searchParts(query: string): Promise<Part[]> {
+  return fetchApi<Part[]>(`${API_ENDPOINTS.PARTS_SEARCH}?query=${encodeURIComponent(query)}`);
 }
 
-export async function deletePart(id: number) {
-  console.log('Deleting part:', id);
-  const response = await fetch(`${API_URL}/parts/${id}`, {
-    method: 'DELETE',
-  });
-  return handleResponse(response);
-}
-
-// Basic API functions for production runs
 export async function getProductionRuns() {
-  const res = await fetch(`${API_URL}/production-runs`);
-  if (!res.ok) throw new Error('Failed to fetch production runs');
-  return res.json();
+  return fetchApi(API_ENDPOINTS.PRODUCTION_RUNS);
 }
 
-// Basic API functions for quality checks
 export async function getQualityChecks() {
-  const res = await fetch(`${API_URL}/quality-checks`);
-  if (!res.ok) throw new Error('Failed to fetch quality checks');
-  return res.json();
+  return fetchApi(API_ENDPOINTS.QUALITY_CHECKS);
+}
+
+export async function getSuppliers() {
+  return fetchApi(API_ENDPOINTS.SUPPLIERS);
 } 

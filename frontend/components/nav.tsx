@@ -1,26 +1,37 @@
-import Link from 'next/link';
+'use client'
 
-export default function Nav() {
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { cn } from '@/lib/utils'
+
+const navigation = [
+  { name: 'Dashboard', href: '/' },
+  { name: 'Open Orders', href: '/open-orders' },
+  { name: 'Inventory', href: '/inventory' },
+  { name: 'Parts', href: '/parts' },
+  { name: 'Production Runs', href: '/production-runs' },
+  { name: 'Quality Checks', href: '/quality-checks' },
+]
+
+export function Nav() {
+  const pathname = usePathname()
+
   return (
-    <nav className="bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between h-16">
-          <div className="flex space-x-8">
-            <Link href="/" className="flex items-center px-2 py-2 text-gray-700 hover:text-gray-900">
-              Dashboard
-            </Link>
-            <Link href="/parts" className="flex items-center px-2 py-2 text-gray-700 hover:text-gray-900">
-              Parts
-            </Link>
-            <Link href="/production-runs" className="flex items-center px-2 py-2 text-gray-700 hover:text-gray-900">
-              Production Runs
-            </Link>
-            <Link href="/quality-checks" className="flex items-center px-2 py-2 text-gray-700 hover:text-gray-900">
-              Quality Checks
-            </Link>
-          </div>
-        </div>
-      </div>
+    <nav className="flex space-x-4 lg:space-x-6">
+      {navigation.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            'text-sm font-medium transition-colors hover:text-primary',
+            pathname === item.href
+              ? 'text-black dark:text-white'
+              : 'text-muted-foreground'
+          )}
+        >
+          {item.name}
+        </Link>
+      ))}
     </nav>
-  );
+  )
 } 
