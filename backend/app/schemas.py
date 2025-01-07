@@ -182,29 +182,23 @@ class PartResponse(PartBase):
 
 class ProductionRunBase(BaseModel):
     quantity: int
-    start_time: datetime
-    end_time: Optional[datetime] = None
     status: str
 
-class ProductionRunCreate(BaseModel):
+class ProductionRunCreate(ProductionRunBase):
     order_id: int
     order_item_id: int
-    quantity: int
-    status: str
 
-class ProductionRunResponse(BaseModel):
+class ProductionRunResponse(ProductionRunBase):
     id: int
     order_id: int
     order_item_id: int
-    quantity: int
-    status: str
     start_date: Optional[datetime]
     end_date: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class QualityCheckBase(BaseModel):
     quantity_checked: int

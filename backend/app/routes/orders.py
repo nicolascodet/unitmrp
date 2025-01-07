@@ -30,37 +30,50 @@ def get_orders(db: Session = Depends(get_db)):
 
 @router.post("/orders", response_model=schemas.Order)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
-    # Generate order number (you might want to customize this)
-    order_number = f"ORD-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-    
-    db_order = models.Order(
-        order_number=order_number,
-        customer=order.customer,
-        due_date=order.due_date,
-        status=order.status,
-        notes=order.notes
-    )
-    db.add(db_order)
-    db.flush()  # Get the order ID
-    
-    # Create order items
-    for item in order.items:
-        # Verify part exists
-        part = db.query(models.Part).filter(models.Part.id == item.part_id).first()
-        if not part:
-            raise HTTPException(status_code=404, detail=f"Part with id {item.part_id} not found")
+    try:
+        # Generate order number
+        order_number = f"ORD-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
         
-        db_item = models.OrderItem(
-            order_id=db_order.id,
-            part_id=item.part_id,
-            quantity=item.quantity,
-            status=item.status
+        # Parse the due_date string into a datetime object if it's a string
+        due_date = order.due_date
+        if isinstance(due_date, str):
+            due_date = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+        
+        db_order = models.Order(
+            order_number=order_number,
+            customer=order.customer,
+            due_date=due_date,
+            status=order.status,
+            notes=order.notes
         )
-        db.add(db_item)
-    
-    db.commit()
-    db.refresh(db_order)
-    return db_order
+        db.add(db_order)
+        db.flush()  # Get the order ID
+        
+        # Create order items
+        for item in order.items:
+            # Verify part exists
+            part = db.query(models.Part).filter(models.Part.id == item.part_id).first()
+            if not part:
+                raise HTTPException(status_code=404, detail=f"Part with id {item.part_id} not found")
+            
+            now = datetime.utcnow()
+            db_item = models.OrderItem(
+                order_id=db_order.id,
+                part_id=item.part_id,
+                quantity=item.quantity,
+                status=item.status,
+                created_at=now,
+                updated_at=now
+            )
+            db.add(db_item)
+        
+        db.commit()
+        db.refresh(db_order)
+        return db_order
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating order: {str(e)}")  # Add logging
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/orders/{order_id}", response_model=schemas.Order)
 def get_order(order_id: int, db: Session = Depends(get_db)):

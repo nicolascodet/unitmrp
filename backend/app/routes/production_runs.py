@@ -15,10 +15,18 @@ def get_production_runs(db: Session = Depends(get_db)):
 
 @router.post("/production-runs", response_model=schemas.ProductionRunResponse)
 def create_production_run(run: schemas.ProductionRunCreate, db: Session = Depends(get_db)):
-    # Verify part exists
-    part = db.query(models.Part).filter(models.Part.id == run.part_id).first()
-    if not part:
-        raise HTTPException(status_code=404, detail=f"Part with id {run.part_id} not found")
+    # Verify order exists
+    order = db.query(models.Order).filter(models.Order.id == run.order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail=f"Order with id {run.order_id} not found")
+    
+    # Verify order item exists and belongs to the order
+    order_item = db.query(models.OrderItem).filter(
+        models.OrderItem.id == run.order_item_id,
+        models.OrderItem.order_id == run.order_id
+    ).first()
+    if not order_item:
+        raise HTTPException(status_code=404, detail=f"Order item with id {run.order_item_id} not found for order {run.order_id}")
     
     db_run = models.ProductionRun(**run.dict())
     db.add(db_run)
