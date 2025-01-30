@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Title, Tab, TabGroup, TabList, TabPanel, TabPanels } from '@tremor/react';
 import type { Material, InventoryItem } from '../types';
-import { useStore } from '@/app/lib/store';
+import { useStore } from '../utils/store';
 
 export default function InventoryPage() {
   // Global state
